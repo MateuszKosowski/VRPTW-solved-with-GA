@@ -1,3 +1,5 @@
+import math
+
 from client import Client
 
 
@@ -28,7 +30,6 @@ def load_data(filename):
             start_parsing = True
             continue
 
-        # Jeśli jesteśmy w sekcji danych, parsujemy liczby
         if start_parsing:
             parts = line.split()
             if len(parts) >= 7:
@@ -46,4 +47,35 @@ def load_data(filename):
     print(f"Wczytano {len(clients)} punktów (1 Depot + {len(clients) - 1} Klientów).")
     return vehicle_capacity, clients
 
-load_data("data/c101.txt")
+def calculate_distance(c1, c2):
+    return math.hypot(c1.x - c2.x, c1.y - c2.y)
+
+def create_distance_matrix(clients):
+    num_clients = len(clients)
+    matrix = [[0.0] * num_clients for _ in range(num_clients)]
+
+    for i in range(num_clients):
+        for j in range(num_clients):
+            if i == j:
+                matrix[i][j] = 0.0
+            else:
+                dist = calculate_distance(clients[i], clients[j])
+                matrix[i][j] = dist
+
+    print("Macierz odległości wygenerowana.")
+    return matrix
+
+
+
+capacity, clients = load_data("data/c101.txt")
+
+dist_matrix = create_distance_matrix(clients)
+
+depot = clients[0]
+cust1 = clients[1]
+
+print(f"\nDepot: ({depot.x}, {depot.y})")
+print(f"Klient 1: ({cust1.x}, {cust1.y})")
+
+calculated = dist_matrix[0][1]
+print(f"Odległość w macierzy: {calculated:.2f}")
