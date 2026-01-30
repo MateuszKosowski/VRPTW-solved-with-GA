@@ -140,9 +140,7 @@ def calculate_fitness(num_vehicles, distance):
 def crossover(parent1, parent2):
     size = len(parent1)
     start, end = sorted(sample(range(size), 2))
-
     child = [-1] * size
-
     child[start:end] = parent1[start:end]
 
     current_pos = end

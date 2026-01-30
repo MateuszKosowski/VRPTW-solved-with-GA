@@ -41,7 +41,7 @@ def load_json(file):
         return [json.loads(line) for line in f]
 
 def plot_cost_history(output_dir, datasets_files, baseline_params, filename=None,
-                               title="Koszt vs Generacje dla wszystkich datasetów"):
+                               title="Długość trasy vs Generacje dla wszystkich datasetów"):
     all_files = glob(os.path.join(output_dir, "*.json"))
     
     plt.figure(figsize=(10,6))
@@ -69,7 +69,7 @@ def plot_cost_history(output_dir, datasets_files, baseline_params, filename=None
         plt.plot(best_run["history"], label=ds_name)
 
     plt.xlabel("Generacja")
-    plt.ylabel("Koszt")
+    plt.ylabel("Długość trasy")
     plt.title(title)
     plt.grid(True)
     plt.legend()

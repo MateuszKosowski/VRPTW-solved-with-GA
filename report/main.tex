@@ -281,26 +281,28 @@ Rozwiązania naruszające te ograniczenia są karane w funkcji dopasowania, co w
 
 \chapter{Implementacja}
 
-\section{Crossover (PMX)}
-Crossover łączy dwie permutacje (genomy) w nową, zachowując część kolejności z jednego rodzica i uzupełniając brakujące elementy z drugiego.
+\section{Crossover}
+Crossover łączy dwa genomy w nowy, zachowując część kolejności z jednego rodzica i uzupełniając brakujące elementy z drugiego.
 
 \begin{lstlisting}[language=Python]
 def crossover(parent1, parent2):
-    start, end = sorted(sample(range(len(parent1)), 2))
-    child = [-1] * len(parent1)
+    size = len(parent1)
+    start, end = sorted(sample(range(size), 2))
+    child = [-1] * size
     child[start:end] = parent1[start:end]
 
     current_pos = end
     for gene in parent2:
         if gene not in child:
-            if current_pos >= len(child): current_pos = 0
+            if current_pos >= size:
+                current_pos = 0
             child[current_pos] = gene
             current_pos += 1
 
     return child
 \end{lstlisting}
 
-\section{Mutacja (swap)}
+\section{Mutacja}
 Mutacja zamienia miejscami dwa losowe elementy w genomie. Wprowadza różnorodność w populacji.
 
 \begin{lstlisting}[language=Python]
@@ -318,17 +320,21 @@ def mutate(genome):
 def optimize_route_2opt(route, clients, dist_matrix, capacity):
     best_route = route[:]
     _, best_dist, _ = check_route(best_route, clients, dist_matrix, capacity)
-    improved = True
 
+    improved = True
     while improved:
         improved = False
         for i in range(len(best_route) - 1):
             for j in range(i + 1, len(best_route)):
                 if j - i == 1: continue
-                new_route = best_route[:i] + best_route[i:j+1][::-1] + best_route[j+1:]
+
+                new_route = best_route[:i] + best_route[i:j + 1][::-1] + best_route[j + 1:]
+
                 valid, new_dist, _ = check_route(new_route, clients, dist_matrix, capacity)
-                if valid and new_dist < best_dist - 0.01:
-                    best_route, best_dist = new_route, new_dist
+
+                if valid and new_dist < best_dist - 0.01: 
+                    best_route = new_route
+                    best_dist = new_dist
                     improved = True
                     break
             if improved: break
@@ -341,36 +347,52 @@ def optimize_route_2opt(route, clients, dist_matrix, capacity):
 Algorytm tworzy populację permutacji klientów, ocenia je, stosuje selekcję przez turniej, crossover i mutację, a każdą trasę optymalizuje 2-opt.
 
 \begin{lstlisting}[language=Python]
-def run_genetic_algorithm(clients, dist_matrix, capacity,
-                          population_size, generations,
-                          tournament_size, mutation_rate):
+def run_genetic_algorithm(clients, dist_matrix, capacity, population_size, generations, tournament_size, mutation_rate):
     customer_ids = list(range(1, len(clients)))
-    population = [sample(customer_ids, len(customer_ids)) for _ in range(population_size)]
+    cost_history = []
+
+    population = []
+    for _ in range(population_size):
+        shuffled = customer_ids[:]
+        shuffle(shuffled)
+        population.append(shuffled)
+
     best_overall_genome = None
     best_overall_fitness = float('inf')
+    best_vehicles_count = float('inf')
+    best_distance_val = float('inf')
 
     for gen in range(generations):
         scored_population = []
         for genome in population:
             raw_routes, _ = calculate_routes(genome, clients, dist_matrix, capacity)
             optimized_routes = []
-            total_dist = 0.0
+            total_optimized_dist = 0.0
             for route in raw_routes:
                 if len(route) > 2:
-                    opt_r, opt_d = optimize_route_2opt(route, clients, dist_matrix, capacity)
+                    opt_route, opt_dist = optimize_route_2opt(route, clients, dist_matrix, capacity)
+                    optimized_routes.append(opt_route)
+                    total_optimized_dist += opt_dist
                 else:
-                    _, opt_d, _ = check_route(route, clients, dist_matrix, capacity)
-                    opt_r = route
-                optimized_routes.append(opt_r)
-                total_dist += opt_d
-            fitness = calculate_fitness(len(optimized_routes), total_dist)
-            scored_population.append((fitness, genome))
-            if fitness < best_overall_fitness:
-                best_overall_fitness, best_overall_genome = fitness, genome[:]
+                    _, d, _ = check_route(route, clients, dist_matrix, capacity)
+                    optimized_routes.append(route)
+                    total_optimized_dist += d
 
-        # Selekcja i reprodukcja
-        scored_population.sort(key=lambda x: x[0])
-        new_population = [scored_population[0][1], scored_population[1][1]]  # elitism
+            num_vehicles = len(optimized_routes)
+            fitness = calculate_fitness(num_vehicles, total_optimized_dist)
+            scored_population.append((fitness, genome, num_vehicles, total_optimized_dist))
+            if fitness < best_overall_fitness:
+                best_overall_fitness = fitness
+                best_overall_genome = genome[:]
+                best_vehicles_count = num_vehicles
+                best_distance_val = total_optimized_dist
+
+        best_gen_cost = min(x[3] for x in scored_population)
+        cost_history.append(best_gen_cost)
+        new_population = []
+        scored_population.sort(key=lambda x: x[0])  
+        new_population.append(scored_population[0][1])
+        new_population.append(scored_population[1][1])
         while len(new_population) < population_size:
             tournament = sample(scored_population, tournament_size)
             parent1 = min(tournament, key=lambda x: x[0])[1]
@@ -381,8 +403,8 @@ def run_genetic_algorithm(clients, dist_matrix, capacity,
                 child = mutate(child)
             new_population.append(child)
         population = new_population
+    return best_overall_genome, best_vehicles_count, cost_history
 
-    return best_overall_genome
 \end{lstlisting}
 
 \chapter{Zasada działania programu}
@@ -536,7 +558,7 @@ Eksperymenty wykazały, że ustawienia parametrów algorytmu genetycznego mają 
     \item \textbf{Rozmiar populacji} - większa populacja zwiększa różnorodność rozwiązań i poprawia eksplorację przestrzeni tras, co sprzyja znajdowaniu lepszych wyników, jednak kosztem dłuższego czasu obliczeń.
     \item \textbf{Liczba pokoleń} - większa liczba iteracji ewolucji umożliwia dalszą poprawę jakości tras i dokładniejszą optymalizację kosztu, choć po pewnym czasie obserwowany jest malejący przyrost jakości.
     \item \textbf{Rozmiar turnieju} - większa presja selekcyjna przyspiesza zbieganie algorytmu, lecz może prowadzić do utraty różnorodności populacji i przedwczesnej zbieżności do minimów lokalnych.
-    \item \textbf{Prawdopodobieństwo mutacji} - mutacja wprowadza nowe struktury tras i pomaga uniknąć utknięcia w lokalnych minimach; zbyt niska ogranicza eksplorację, natomiast zbyt wysoka powoduje losowość i pogorszenie stabilności wyników.
+    \item \textbf{Prawdopodobieństwo mutacji} - mutacja wprowadza nowe struktury tras i pomaga uniknąć utknięcia w lokalnych minimach; jednak przy badanych parametrach nie miała znaczącego wpływu na jakość uzyskiwanych wyników.
 \end{itemize}
 
 \section{Porównanie wyników}
