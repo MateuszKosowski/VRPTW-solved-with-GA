@@ -1,0 +1,562 @@
+\documentclass[12pt,a4paper]{report}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{csvsimple}
+\usepackage{pgfplotstable}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+
+% Tłumaczenia nazw
+\floatname{algorithm}{Algorytm}
+
+% Tłumaczenia słów kluczowych
+\algrenewcommand\algorithmicrequire{\textbf{Dane wejściowe:}}
+\algrenewcommand\algorithmicensure{\textbf{Dane wyjściowe:}}
+
+\algrenewcommand\algorithmicif{\textbf{jeżeli}}
+\algrenewcommand\algorithmicthen{\textbf{wtedy}}
+\algrenewcommand\algorithmicelse{\textbf{w przeciwnym razie}}
+
+\algrenewcommand\algorithmicfor{\textbf{dla}}
+\algrenewcommand\algorithmicdo{\textbf{wykonuj}}
+
+\algrenewcommand\algorithmicwhile{\textbf{dopóki}}
+
+\algrenewcommand\algorithmicrepeat{\textbf{powtarzaj}}
+\algrenewcommand\algorithmicuntil{\textbf{aż}}
+
+\algrenewcommand\algorithmicreturn{\textbf{zwróć}}
+
+\algrenewcommand\algorithmicend{\textbf{koniec}}
+
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{green!60!black}\itshape,
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny,
+    stepnumber=1,
+    numbersep=5pt,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+\pgfplotstableset{
+    highlight/.style={
+        postproc cell content/.append code={
+            \ifnum\pgfplotstablerow=0
+                \pgfkeysalso{@cell content=\cellcolor{gray!20}\pgfplotsretval}%
+            \fi
+        }
+    }
+}
+
+\titleformat{\chapter}[hang]
+  {\normalfont\huge\bfseries}{\thechapter}{1em}{}
+\titlespacing*{\chapter}{0pt}{-20pt}{40pt}
+
+\AtBeginDocument{
+  \addtolength{\leftskip}{1.5em}
+  \addtolength{\rightskip}{1.5em}
+}
+
+% Page margins
+\geometry{
+    left=15mm,
+    right=15mm,
+    top=15mm,
+    bottom=15mm
+}
+
+\title{Planowanie dostaw z uwzględnieniem okien czasowych}
+\author{
+    Jakub Rosiak 251620
+    \and
+    Mateusz Kosowski 251558    
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Metaheurystyka}
+
+\section{Idea algorytmu genetycznego}
+
+Algorytm genetyczny jest metodą optymalizacji inspirowaną procesami ewolucji biologicznej. Operuje na populacji rozwiązań, zwanych \textit{osobnikami}, z których każdy reprezentuje potencjalne rozwiązanie problemu.
+
+Populacja jest modyfikowana w kolejnych iteracjach za pomocą trzech głównych operacji:
+\begin{itemize}
+    \item \textbf{selekcji} - wybór najlepiej dopasowanych osobników na podstawie funkcji dopasowania (\textit{fitness}),
+    \item \textbf{krzyżowania (crossover)} - łączenie cech dwóch osobników w celu utworzenia potomstwa,
+    \item \textbf{mutacji} - losowa zmiana cech potomków w celu wprowadzenia różnorodności.
+\end{itemize}
+
+Proces powtarza się iteracyjnie, tworząc nowe pokolenia populacji, aż zostanie osiągnięty zadowalający wynik lub spełniony warunek stopu, np. maksymalna liczba iteracji lub satysfakcjonująca wartość funkcji dopasowania.
+
+\section{Uzasadnienie wyboru algorytmu genetycznego}
+
+Algorytm genetyczny został wybrany do rozwiązania problemu VRPTW ze względu na jego zdolność do skutecznej optymalizacji złożonych problemów kombinatorycznych. VRPTW charakteryzuje się dużą przestrzenią rozwiązań oraz ograniczeniami czasowymi dla dostaw, co sprawia, że klasyczne metody deterministyczne często nie radzą sobie z efektywnym znalezieniem dobrego rozwiązania w rozsądnym czasie. 
+
+Algorytmy genetyczne posiadają następujące zalety w tym kontekście:
+\begin{itemize}
+    \item \textbf{Efektywne przeszukiwanie dużych przestrzeni rozwiązań} – dzięki populacji wielu rozwiązań jednocześnie, algorytm ma większą szansę znalezienia optymalnych lub bliskich optymalnym tras.
+    \item \textbf{Elastyczność w uwzględnianiu ograniczeń} – ograniczenia czasowe i pojemnościowe mogą być łatwo uwzględnione w funkcji dopasowania lub poprzez specjalne operatory genetyczne.
+    \item \textbf{Zdolność do unikania lokalnych minimów} – dzięki operacjom krzyżowania i mutacji algorytm nie zatrzymuje się na przeciętnych rozwiązaniach, co jest typowe dla prostych heurystyk.
+    \item \textbf{Możliwość dostosowania parametrów i operatorów} – łatwo można eksperymentować z różnymi strategami selekcji, krzyżowania i mutacji w zależności od charakterystyki danych i wymagań czasowych.
+\end{itemize}
+
+Dzięki tym cechom algorytm genetyczny jest naturalnym wyborem dla VRPTW, pozwalającym uzyskać dobre jakościowo rozwiązania w rozsądnym czasie obliczeniowym.
+
+
+\section{Pseudokod algorytmu genetycznego}
+
+\begin{algorithm}[H]
+\caption{Genetyczny algorytm dla VRPTW}
+\label{alg:ga}
+\begin{algorithmic}[1]
+\Require Lista klientów \textit{clients}, macierz odległości \textit{dist\_matrix}, pojemność pojazdu \textit{capacity}, 
+rozmiar populacji \textit{population\_size}, liczba pokoleń \textit{generations}, rozmiar turnieju \textit{tournament\_size}, 
+prawdopodobieństwo mutacji \textit{mutation\_rate}
+\Ensure Najlepszy genom \textit{best\_overall\_genome} i liczba pojazdów \textit{best\_vehicles\_count}
+
+\State Utwórz listę ID klientów bez depotu: \textit{customer\_ids}
+\State Zainicjalizuj populację losowych permutacji \textit{population} z \textit{customer\_ids}
+\State Inicjalizuj \textit{best\_overall} jako brakujące rozwiązanie
+
+\For{gen = 1 do \textit{generations}}
+    \State \textit{scored\_population} $\gets$ pusta lista
+    \For{każdy \textit{genome} w \textit{population}}
+        \State \textit{raw\_routes} $\gets$ \textit{calculate\_routes(genome, clients, dist\_matrix, capacity)}
+        \State \textit{optimized\_routes} $\gets$ pusta lista
+        \State \textit{total\_optimized\_dist} $\gets 0$
+        \For{każda \textit{raw\_route} w \textit{raw\_routes}}
+            \If{długość(\textit{raw\_route}) > 2}
+                \State \textit{opt\_route, opt\_dist} $\gets$ \textit{2opt(raw\_route, clients, dist\_matrix, capacity)}
+            \Else
+                \State \textit{opt\_route} $\gets$ \textit{raw\_route}
+                \State \textit{opt\_dist} $\gets$ dystans trasy (\textit{check\_route(raw\_route)})
+            \EndIf
+            \State Dodaj \textit{opt\_route} do \textit{optimized\_routes}
+            \State \textit{total\_optimized\_dist} += \textit{opt\_dist}
+        \EndFor
+        \State \textit{num\_vehicles} $\gets$ liczba tras w \textit{optimized\_routes}
+        \State \textit{fitness} $\gets$ \textit{calculate\_fitness(num\_vehicles, total\_optimized\_dist)}
+        \State Dodaj (\textit{fitness, genome, num\_vehicles, total\_optimized\_dist}) do \textit{scored\_population}
+        \If{\textit{fitness} < najlepszy dotychczasowy wynik}
+            \State Zaktualizuj \textit{best\_overall}
+        \EndIf
+    \EndFor
+
+    \State \textit{new\_population} $\gets$ 2 najlepsze genomy (elityzm)
+    \While{rozmiar(\textit{new\_population}) < \textit{population\_size}}
+        \State Wybierz \textit{parent1} i \textit{parent2} przez turniej
+        \State \textit{child} $\gets$ \textit{crossover(parent1, parent2)}
+        \If{losowo < \textit{mutation\_rate}}
+            \State \textit{child} $\gets$ \textit{mutate(child)}
+        \EndIf
+        \State Dodaj \textit{child} do \textit{new\_population}
+    \EndWhile
+    \State \textit{population} $\gets$ \textit{new\_population}
+\EndFor
+
+\State \Return \textit{best\_overall\_genome, best\_vehicles\_count}
+\end{algorithmic}
+\end{algorithm}
+
+\clearpage
+\section{Idea algorytmu 2-opt}
+
+Algorytm 2-opt jest prostą heurystyką optymalizacyjną stosowaną do problemów trasowych, takich jak VRPTW. Polega na iteracyjnym poprawianiu istniejącej trasy poprzez usuwanie dwóch krawędzi i wstawianie ich w taki sposób, aby zmniejszyć całkowitą długość trasy.
+
+Proces działania algorytmu obejmuje następujące kroki:
+\begin{itemize}
+    \item wybór dwóch krawędzi w trasie,
+    \item zamiana fragmentu trasy pomiędzy tymi krawędziami na odwrotny,
+    \item akceptacja zmiany, jeśli prowadzi do skrócenia całkowitej długości trasy,
+    \item powtarzanie kroków aż do momentu, gdy żadna zamiana nie poprawia trasy.
+\end{itemize}
+
+Algorytm 2-opt jest prosty do implementacji i skuteczny w redukcji długości tras, stanowiąc często część bardziej złożonych metaheurystyk.
+
+\section{Uzasadnienie wyboru algorytmu 2-opt}
+
+Algorytm 2-opt został wybrany do problemu VRPTW ze względu na jego prostotę i skuteczność w lokalnej optymalizacji tras pojazdów. Choć nie gwarantuje znalezienia globalnego optimum, pozwala szybko poprawić istniejące rozwiązania, redukując długość tras i minimalizując koszty transportu.
+
+Zaletami zastosowania 2-opt w VRPTW są:
+\begin{itemize}
+    \item \textbf{Szybkie ulepszanie tras} – skutecznie redukuje długość tras poprzez prostą procedurę zamiany krawędzi,
+    \item \textbf{Łatwe uwzględnianie ograniczeń} – modyfikacje tras mogą być kontrolowane pod kątem spełniania ograniczeń czasowych i pojemnościowych,
+    \item \textbf{Niska złożoność obliczeniowa} – działa wydajnie nawet na większych instancjach problemu,
+    \item \textbf{Dobry komponent w metaheurystykach} – często wykorzystywany w połączeniu z algorytmami genetycznymi lub symulowanym wyżarzaniem do lokalnego doskonalenia rozwiązań.
+\end{itemize}
+
+Dzięki tym cechom 2-opt jest naturalnym narzędziem do szybkiej poprawy jakości tras w problemach VRPTW.
+
+
+\section{Pseudokod algorytmu poprawy rozwiązania}
+
+\begin{algorithm}[H]
+\caption{Optymalizacja trasy metodą 2-opt}
+\label{alg:2opt}
+\begin{algorithmic}[1]
+\Require Trasa \textit{route}, lista klientów \textit{clients}, macierz odległości \textit{dist\_matrix}, pojemność pojazdu \textit{capacity}
+\Ensure Najlepsza zoptymalizowana trasa \textit{best\_route} i jej dystans \textit{best\_dist}
+
+\State \textit{best\_route} $\gets$ \textit{route}
+\State \textit{best\_dist} $\gets$ dystans trasy (funkcja \textit{check\_route})
+\State \textit{improved} $\gets$ TRUE
+
+\While{\textit{improved}}
+    \State \textit{improved} $\gets$ FALSE
+    \For{i = 0 do długość(\textit{route})-2}
+        \For{j = i+1 do długość(\textit{route})-1}
+            \If{i i j są sąsiadami} 
+                \State \textbf{continue}
+            \EndIf
+            \State \textit{new\_route} $\gets$ odwrócenie segmentu trasy od i do j
+            \State valid, new\_dist, \_ $\gets$ \textit{check\_route(new\_route, clients, dist\_matrix, capacity)}
+            \If{valid \textbf{and} new\_dist < \textit{best\_dist}}
+                \State \textit{best\_route} $\gets$ \textit{new\_route}
+                \State \textit{best\_dist} $\gets$ new\_dist
+                \State \textit{improved} $\gets$ TRUE
+                \State \textbf{break} wewnętrzną pętlę
+            \EndIf
+        \EndFor
+        \If{\textit{improved}}
+            \State \textbf{break} zewnętrzną pętlę
+        \EndIf
+    \EndFor
+\EndWhile
+
+\State \Return \textit{best\_route, best\_dist}
+\end{algorithmic}
+\end{algorithm}
+
+\clearpage
+\section{Adaptacja algorytmu genetycznego do VRPTW}
+
+Algorytm genetyczny został zaadaptowany do problemu \textit{Vehicle Routing Problem with Time Windows} w następujący sposób:
+
+\paragraph{Reprezentacja osobników.} Każdy osobnik reprezentuje komplet tras pojazdów w formie uporządkowanych list klientów, zaczynając od depozytu. Taka reprezentacja umożliwia uwzględnienie ograniczeń pojemności pojazdów oraz okien czasowych klientów.
+
+\paragraph{Funkcja dopasowania.} Zastosowano funkcję celu minimalizującą całkowity koszt tras (sumę odległości), jednocześnie sprawdzając poprawność rozwiązań względem ograniczeń pojemności i okien czasowych.
+
+\paragraph{Selekcja.} Wykorzystano selekcję turniejową, gdzie z losowej podgrupy osobników wybierany jest najlepszy do krzyżowania. Rozmiar turnieju został dobrany eksperymentalnie.
+
+\paragraph{Krzyżowanie i mutacja.} Operator krzyżowania został dostosowany do struktury tras, zachowując kolejność odwiedzania klientów i poprawność tras pojazdów. Mutacje obejmują zamianę kolejności klientów, przeniesienie klienta między trasami oraz odwracanie fragmentów tras, co pozwala eksplorować przestrzeń rozwiązań i unikać lokalnych minimów.
+
+\paragraph{Ewolucja.} Algorytm iteracyjnie generuje nowe pokolenia, wybierając najlepsze rozwiązania, krzyżując je i mutując, stale aktualizując najlepszy znaleziony zestaw tras. Dzięki takiej adaptacji GA może skutecznie generować poprawne i konkurencyjne rozwiązania VRPTW, uwzględniające zarówno czas obsługi klientów, jak i ograniczenia pojemności pojazdów.
+
+\paragraph{Uwzględnienie okien czasowych.} 
+Każda trasa jest sprawdzana pod kątem ograniczeń czasowych klientów: pojazd może rozpocząć obsługę klienta dopiero po jego \texttt{ready\_time} i musi zakończyć przed \texttt{due\_date}, z uwzględnieniem czasu obsługi (\texttt{service\_time}). Rozwiązania naruszające te ograniczenia są traktowane jako niepoprawne lub karane w funkcji dopasowania, co wymusza generowanie tras spełniających okna czasowe.
+
+\paragraph{Ograniczenia.} 
+Algorytm uwzględnia dwa główne typy ograniczeń:
+\begin{itemize}
+    \item \textbf{Pojemność pojazdów:} suma popytu klientów w trasie nie może przekroczyć maksymalnej pojemności pojazdu.
+    \item \textbf{Okna czasowe:} każdy klient musi być obsłużony w przedziale $[ready\_time, due\_date]$, z uwzględnieniem czasu obsługi.
+\end{itemize}
+Rozwiązania naruszające te ograniczenia są karane w funkcji dopasowania, co wymusza generowanie poprawnych tras. 
+
+\chapter{Implementacja}
+
+\section{Crossover (PMX)}
+Crossover łączy dwie permutacje (genomy) w nową, zachowując część kolejności z jednego rodzica i uzupełniając brakujące elementy z drugiego.
+
+\begin{lstlisting}[language=Python]
+def crossover(parent1, parent2):
+    start, end = sorted(sample(range(len(parent1)), 2))
+    child = [-1] * len(parent1)
+    child[start:end] = parent1[start:end]
+
+    current_pos = end
+    for gene in parent2:
+        if gene not in child:
+            if current_pos >= len(child): current_pos = 0
+            child[current_pos] = gene
+            current_pos += 1
+
+    return child
+\end{lstlisting}
+
+\section{Mutacja (swap)}
+Mutacja zamienia miejscami dwa losowe elementy w genomie. Wprowadza różnorodność w populacji.
+
+\begin{lstlisting}[language=Python]
+def mutate(genome):
+    idx1, idx2 = sample(range(len(genome)), 2)
+    genome[idx1], genome[idx2] = genome[idx2], genome[idx1]
+    return genome
+\end{lstlisting}
+
+\clearpage
+\section{2-opt lokalna optymalizacja}
+2-opt poprawia trasę poprzez odwracanie fragmentów, jeśli skraca dystans i nie łamie ograniczeń czasowych ani pojemnościowych.
+
+\begin{lstlisting}[language=Python]
+def optimize_route_2opt(route, clients, dist_matrix, capacity):
+    best_route = route[:]
+    _, best_dist, _ = check_route(best_route, clients, dist_matrix, capacity)
+    improved = True
+
+    while improved:
+        improved = False
+        for i in range(len(best_route) - 1):
+            for j in range(i + 1, len(best_route)):
+                if j - i == 1: continue
+                new_route = best_route[:i] + best_route[i:j+1][::-1] + best_route[j+1:]
+                valid, new_dist, _ = check_route(new_route, clients, dist_matrix, capacity)
+                if valid and new_dist < best_dist - 0.01:
+                    best_route, best_dist = new_route, new_dist
+                    improved = True
+                    break
+            if improved: break
+
+    return best_route, best_dist
+\end{lstlisting}
+
+\clearpage
+\section{Główna pętla algorytmu genetycznego}
+Algorytm tworzy populację permutacji klientów, ocenia je, stosuje selekcję przez turniej, crossover i mutację, a każdą trasę optymalizuje 2-opt.
+
+\begin{lstlisting}[language=Python]
+def run_genetic_algorithm(clients, dist_matrix, capacity,
+                          population_size, generations,
+                          tournament_size, mutation_rate):
+    customer_ids = list(range(1, len(clients)))
+    population = [sample(customer_ids, len(customer_ids)) for _ in range(population_size)]
+    best_overall_genome = None
+    best_overall_fitness = float('inf')
+
+    for gen in range(generations):
+        scored_population = []
+        for genome in population:
+            raw_routes, _ = calculate_routes(genome, clients, dist_matrix, capacity)
+            optimized_routes = []
+            total_dist = 0.0
+            for route in raw_routes:
+                if len(route) > 2:
+                    opt_r, opt_d = optimize_route_2opt(route, clients, dist_matrix, capacity)
+                else:
+                    _, opt_d, _ = check_route(route, clients, dist_matrix, capacity)
+                    opt_r = route
+                optimized_routes.append(opt_r)
+                total_dist += opt_d
+            fitness = calculate_fitness(len(optimized_routes), total_dist)
+            scored_population.append((fitness, genome))
+            if fitness < best_overall_fitness:
+                best_overall_fitness, best_overall_genome = fitness, genome[:]
+
+        # Selekcja i reprodukcja
+        scored_population.sort(key=lambda x: x[0])
+        new_population = [scored_population[0][1], scored_population[1][1]]  # elitism
+        while len(new_population) < population_size:
+            tournament = sample(scored_population, tournament_size)
+            parent1 = min(tournament, key=lambda x: x[0])[1]
+            tournament = sample(scored_population, tournament_size)
+            parent2 = min(tournament, key=lambda x: x[0])[1]
+            child = crossover(parent1, parent2)
+            if random() < mutation_rate:
+                child = mutate(child)
+            new_population.append(child)
+        population = new_population
+
+    return best_overall_genome
+\end{lstlisting}
+
+\chapter{Zasada działania programu}
+
+Program służy do rozwiązywania problemu trasowania pojazdów (VRPTW) z wykorzystaniem hybrydowego algorytmu genetycznego wspomaganego lokalną optymalizacją 2-opt.  
+
+\section{Uruchamianie programu}
+
+Program główny można uruchomić z terminala za pomocą polecenia:
+
+\begin{lstlisting}[language=bash]
+python main.py filename output population_size generations tournament_size mutation_rate
+\end{lstlisting}
+
+Gdzie argumenty oznaczają:
+\begin{itemize}
+    \item \textbf{filename} - ścieżka do pliku z danymi solomona,
+    \item \textbf{output} - plik, do którego zapisane zostaną wyniki eksperymentu w formacie JSON,
+    \item \textbf{population\_size} - liczba osobników w populacji algorytmu genetycznego,
+    \item \textbf{generations} - liczba pokoleń, przez które GA będzie ewoluować populację,
+    \item \textbf{tournament\_size} - liczba osobników w turnieju selekcyjnym,
+    \item \textbf{mutation\_rate} - prawdopodobieństwo mutacji każdego potomka.
+\end{itemize}
+
+\section{Uruchamianie zestawów eksperymentów}
+
+Plik \texttt{runner.py} automatycznie uruchamia wszystkie zdefiniowane eksperymenty, iterując przez różne kombinacje parametrów i zapisując wyniki do plików wyjściowych.
+
+\section{Generowanie wykresów}
+
+Plik \texttt{plot.py} analizuje zapisane wyniki i generuje wykresy pokazujące m.in.:
+\begin{itemize}
+    \item zmiany najlepszego kosztu w kolejnych pokoleniach,
+    \item porównanie różnych parametrów GA,
+    \item statystyki dystansu tras i liczby pojazdów.
+\end{itemize}
+
+Dzięki temu możliwe jest szybkie porównanie efektywności różnych konfiguracji algorytmu oraz wizualna ocena wyników.
+
+
+\chapter{Eksperymenty}
+
+\section{Parametry eksperymentów}
+
+W eksperymentach badano wpływ różnych parametrów algorytmu na różne zestawy klientów: c101, r101 i rc101
+
+\subsection{Baseline}
+
+Wszystkie funkcje były najpierw testowane z wartościami baseline:
+
+\begin{itemize}
+    \item Liczba osobników (population\_size): 50
+    \item Liczba generatji (generations): 10000
+    \item Liczba osobników w turnieju (tournament\_size): 5
+    \item Szansa mutacji (mutation\_rate): 0.05
+\end{itemize}
+
+\subsection{Zakres wartości testowanych w eksperymentach}
+
+Parametry były modyfikowane w następujący sposób:
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{ll}
+    \hline
+    \textbf{Parametr} & \textbf{Testowane wartości} \\
+    \hline
+    population\_size & 20, 50, 100, 200 \\ 
+    generations & 100, 500, 1000, 10000 \\ 
+    tournament\_size & 2, 5, 10 \\ 
+    mutation\_rate & 0.0, 0.05, 0.1, 0.2 \\ 
+    \hline
+\end{tabular}
+\caption{Zakres wartości parametrów badanych w eksperymentach.}
+\end{table}
+
+\section{Opis eksperymentów}
+
+Każdy eksperyment polegał na modyfikacji jednego parametru algorytmu względem wartości bazowych (baseline), przy jednoczesnym utrzymaniu pozostałych parametrów na stałym poziomie. Takie podejście pozwala na jednoznaczną ocenę wpływu poszczególnych parametrów na jakość znalezionego rozwiązania dla analizowanych funkcji testowych.
+
+\subsection{Wpływ parametrów algorytmu genetycznego}
+
+Na rysunkach~\ref{fig:population_size}, ~\ref{fig:generations}, ~\ref{fig:tournament_size} oraz ~\ref{fig:mutation_rate} przedstawiono wpływ liczby osobników, ilości pokoleń, rozmiaru turnieju i szansy na mutacje na jakość uzyskiwanych rozwiązań. Wyniki zaprezentowano w postaci wykresów pudełkowych, umożliwiających porównanie rozkładów wartości dla poszczególnych konfiguracji.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../plots/boxplot_pop.png}
+\caption{Wpływ rozmiaru popluacji na jakość znalezionego rozwiązania}
+\label{fig:population_size}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../plots/boxplot_gen.png}
+\caption{Wpływ ilości pokoleń na jakość znalezionego rozwiązania}
+\label{fig:generations}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../plots/boxplot_tour.png}
+\caption{Wpływ rozmiaru turnieju na jakość znalezionego rozwiązania}
+\label{fig:tournament_size}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../plots/boxplot_mut.png}
+\caption{Wpływ szansy mutacji na jakość znalezionego rozwiązania}
+\label{fig:mutation_rate}
+\end{figure}
+
+\subsection{Zbieżność w czasie}
+
+Aby pokazać dynamikę algorytmu, wykonano pomiary długości trasy w kolejnych generacjach. Na poniższym wykresie przedstawiono długości tras w zależności od numeru iteracji:
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../plots/all_datasets_cost_history.png}
+\caption{Wpływ szansy mutacji na jakość znalezionego rozwiązania}
+\end{figure}
+
+\subsection{Wyniki}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../plots/c101_all_routes.png}
+\caption{Wpływ szansy mutacji na jakość znalezionego rozwiązania}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../plots/r101_all_routes.png}
+\caption{Wpływ szansy mutacji na jakość znalezionego rozwiązania}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../plots/rc101_all_routes.png}
+\caption{Wpływ szansy mutacji na jakość znalezionego rozwiązania}
+\end{figure}
+
+\chapter{Analiza wyników}
+
+W niniejszym rozdziale przeprowadzono szczegółową analizę wyników eksperymentów algorytmu genetycznego dla problemu Vehicle Routing Problem with Time Windows (VRPTW). Analiza obejmuje wpływ parametrów algorytmu na jakość uzyskiwanych tras, stabilność działania, szybkość zbiegania do dobrych rozwiązań oraz zdolność do unikania minimów lokalnych. Dodatkowo porównano trudność poszczególnych instancji problemu oraz skuteczność algorytmu w spełnianiu ograniczeń pojemności pojazdów i okien czasowych klientów.
+
+\section{Wpływ parametrów na jakość wyników}
+
+Eksperymenty wykazały, że ustawienia parametrów algorytmu genetycznego mają istotny wpływ na jakość uzyskiwanych rozwiązań VRPTW:
+\begin{itemize}
+    \item \textbf{Rozmiar populacji} - większa populacja zwiększa różnorodność rozwiązań i poprawia eksplorację przestrzeni tras, co sprzyja znajdowaniu lepszych wyników, jednak kosztem dłuższego czasu obliczeń.
+    \item \textbf{Liczba pokoleń} - większa liczba iteracji ewolucji umożliwia dalszą poprawę jakości tras i dokładniejszą optymalizację kosztu, choć po pewnym czasie obserwowany jest malejący przyrost jakości.
+    \item \textbf{Rozmiar turnieju} - większa presja selekcyjna przyspiesza zbieganie algorytmu, lecz może prowadzić do utraty różnorodności populacji i przedwczesnej zbieżności do minimów lokalnych.
+    \item \textbf{Prawdopodobieństwo mutacji} - mutacja wprowadza nowe struktury tras i pomaga uniknąć utknięcia w lokalnych minimach; zbyt niska ogranicza eksplorację, natomiast zbyt wysoka powoduje losowość i pogorszenie stabilności wyników.
+\end{itemize}
+
+\section{Porównanie wyników}
+
+Uzyskane rezultaty porównano z najlepszymi znanymi wynikami literaturowymi dla standardowych instancji Solomon: C101, R101 oraz RC101. Analizie poddano zarówno całkowity koszt tras, jak i liczbę wykorzystanych pojazdów.
+
+Dla instancji \textbf{C101} najlepsze znane rozwiązanie wykorzystuje 10 pojazdów i osiąga koszt 828.94, natomiast algorytm genetyczny wygenerował rozwiązanie z 11 pojazdami i kosztem 896.19. Oznacza to niewielkie pogorszenie jakości, przy zachowaniu podobnej struktury tras.
+
+W przypadku \textbf{R101} uzyskano 22 pojazdy i koszt 1752.81, podczas gdy optimum referencyjne wynosi 19 pojazdów i 1650.80. Różnica jest większa niż dla C101, co wskazuje na większą trudność instancji o losowym rozmieszczeniu klientów.
+
+Dla \textbf{RC101}, łączącej cechy klastrowe i losowe, algorytm osiągnął 19 pojazdów oraz koszt 1911.38, podczas gdy najlepszy znany wynik to 14 pojazdów i 1696.95. Jest to największe odchylenie od optimum, co potwierdza wysoką złożoność tej instancji.
+
+Podsumowując, algorytm genetyczny generuje rozwiązania bliskie najlepszym znanym wynikom, jednak wraz ze wzrostem nieregularności rozmieszczenia klientów jakość rozwiązań maleje, co sugeruje potrzebę dalszego strojenia parametrów lub zastosowania bardziej zaawansowanych operatorów ewolucyjnych.
+
+\section{Wnioski}
+
+Przeprowadzone eksperymenty pokazują, że algorytm genetyczny jest w stanie generować poprawne rozwiązania problemu VRPTW, jednak osiągnięcie wyników zbliżonych do najlepszych znanych wartości wymaga bardzo dużej liczby pokoleń. Zbieżność algorytmu jest stosunkowo powolna, a poprawa jakości tras następuje stopniowo, co przekłada się na wysokie koszty obliczeniowe.
+
+W przypadku prostszych instancji o strukturze klastrowej (C101) uzyskane wyniki są relatywnie bliskie optimum, natomiast dla bardziej złożonych i losowych przypadków (R101, RC101) różnice względem najlepszych rozwiązań wyraźnie rosną. Wskazuje to na trudności algorytmu w efektywnej eksploracji przestrzeni rozwiązań oraz podatność na utknięcie w minimach lokalnych.
+
+Otrzymane rezultaty sugerują, że klasyczny algorytm genetyczny, mimo swojej uniwersalności, może nie być najbardziej efektywnym wyborem dla VRPTW w zastosowaniach wymagających wysokiej dokładności lub krótkiego czasu obliczeń. Lepsze wyniki mogą wymagać zastosowania metod hybrydowych, dodatkowych heurystyk lokalnego przeszukiwania lub bardziej wyspecjalizowanych algorytmów optymalizacyjnych.
+
+\end{document}
