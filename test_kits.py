@@ -1,6 +1,6 @@
 # WARTOŚCI BAZOWE
 BASE_POP = 50          # liczba osobników
-BASE_GEN = 1000       # liczba pokoleń
+BASE_GEN = 10000       # liczba pokoleń
 BASE_TOURN = 5         # wielkość turnieju
 BASE_MUT = 0.05        # prawdopodobieństwo mutacji
 
@@ -24,5 +24,5 @@ EXPERIMENTS_GA = [
     # --- GRUPA 4: zmienna liczba pokoleń ---
     {"population_size": BASE_POP, "generations": 100, "tournament_size": BASE_TOURN, "mutation_rate": BASE_MUT},
     {"population_size": BASE_POP, "generations": 500, "tournament_size": BASE_TOURN, "mutation_rate": BASE_MUT},
-    {"population_size": BASE_POP, "generations": 10000, "tournament_size": BASE_TOURN, "mutation_rate": BASE_MUT},
+    {"population_size": BASE_POP, "generations": 1000, "tournament_size": BASE_TOURN, "mutation_rate": BASE_MUT},
 ]

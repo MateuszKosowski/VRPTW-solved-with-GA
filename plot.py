@@ -5,16 +5,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from glob import glob
-
-class Client:
-    def __init__(self, id, x, y, demand=0, ready_time=0, due_date=0, service_time=0):
-        self.id = id
-        self.x = x
-        self.y = y
-        self.demand = demand
-        self.ready_time = ready_time
-        self.due_date = due_date
-        self.service_time = service_time
+from client import Client
 
 def load_solomon_file(filename):
     clients = []
